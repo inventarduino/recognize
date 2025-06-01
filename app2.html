@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calificador de Pruebas con Círculos Negros (TensorFlow.js)</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.21.0/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.2"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        .section {
+            margin-bottom: 20px;
+        }
+        #preview {
+            max-width: 100%;
+            height: auto;
+            margin-top: 10px;
+        }
+        #result {
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #ccc;
+        }
+    </style>
+</head>
+<body>
+    <h1>Calificador de Pruebas con Círculos Negros (TensorFlow.js)</h1>
+
+    <div class="section">
+        <h2>1. Cargar Respuestas Correctas (.txt)</h2>
+        <input type="file" id="correctAnswers" accept=".txt">
+        <p id="correctAnswersDisplay"></p>
+    </div>
+
+    <div class="section">
+        <h2>2. Cargar Imagen de la Prueba</h2>
+        <input type="file" id="studentImage" accept="image/*">
+        <img id="preview" alt="Vista previa de la imagen">
+    </div>
+
+    <div class="section">
+        <label for="numQuestions">Número de preguntas:</label>
+        <input type="number" id="numQuestions" min="1" value="4">
+    </div>
+
+    <div class="section">
+        <button onclick="processAnswers()">Calificar Prueba</button>
+    </div>
+
+    <div class="section">
+        <button onclick="downloadResults()">Descargar Resultados</button>
+    </div>
+
+    <div id="result"></div>
+
+    <script>
+        let correctAnswers = [];
+        let model;
+
+        // Cargar el modelo COCO-SSD
+        async function loadModel() {
+            if (!model) {
+                try {
+                    model = await cocoSsd.load();
+                    console.log('Modelo COCO-SSD cargado correctamente');
+                } catch (error) {
+                    console.error('Error al cargar el modelo COCO-SSD:', error);
+                    throw new Error('No se pudo cargar el modelo COCO-SSD. Asegúrate de estar ejecutando desde un servidor y verifica tu conexión a internet.');
+                }
+            }
+        }
+
+        // Cargar archivo .txt con respuestas correctas
+        document.getElementById('correctAnswers').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const text = e.target.result;
+                    correctAnswers = text.split('\n')
+                        .map(line => line.trim())
+                        .filter(line => line.match(/^\d+\.\s*[A-D]$/i))
+                        .map(line => line.split('.')[1].trim().toUpperCase());
+                    document.getElementById('correctAnswersDisplay').innerText = 
+                        'Respuestas correctas cargadas: ' + correctAnswers.join(', ');
+                };
+                reader.readAsText(file);
+            }
+        });
+
+        // Mostrar vista previa de la imagen
+        document.getElementById('studentImage').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    document.getElementById('preview').src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        // Procesar respuestas usando TensorFlow.js
+        async function processAnswers() {
+            if (correctAnswers.length === 0) {
+                alert('Por favor, carga primero las respuestas correctas.');
+                return;
+            }
+
+            const imageInput = document.getElementById('studentImage');
+            if (!imageInput.files[0]) {
+                alert('Por favor, carga la imagen de la prueba.');
+                return;
+            }
+
+            const numQuestions = parseInt(document.getElementById('numQuestions').value);
+            if (isNaN(numQuestions) || numQuestions <= 0) {
+                alert('Por favor, ingresa un número válido de preguntas.');
+                return;
+            }
+
+            document.getElementById('result').innerText = 'Cargando modelo y procesando imagen...';
+            try {
+                await loadModel(); // Asegurarse de que el modelo esté cargado
+
+                const image = document.getElementById('preview');
+                const predictions = await model.detect(image);
+
+                // Filtrar predicciones para identificar regiones oscuras (con umbral ajustado)
+                const darkRegions = predictions.filter(pred => {
+                    const area = pred.bbox[2] * pred.bbox[3]; // Ancho * Alto
+                    // Ajusta estos valores según el resultado del análisis de umbral
+                    const minArea = 640; // Reemplaza con el valor mínimo del análisis
+                    const maxArea = 1440; // Reemplaza con el valor máximo del análisis
+                    return area >= minArea && area <= maxArea && pred.score > 0.3;
+                });
+
+                // Depuración: Mostrar información sobre las detecciones
+                let debugText = `Regiones oscuras detectadas: ${darkRegions.length}\n`;
+                darkRegions.forEach((reg, i) => {
+                    debugText += `Región ${i + 1}: x=${reg.bbox[0].toFixed(2)}, y=${reg.bbox[1].toFixed(2)}, ancho=${reg.bbox[2].toFixed(2)}, alto=${reg.bbox[3].toFixed(2)}\n`;
+                });
+                console.log(debugText);
+
+                if (darkRegions.length === 0) {
+                    document.getElementById('result').innerText = 'No se detectaron regiones oscuras en la imagen.\n' + debugText;
+                    return;
+                }
+
+                // Ordenar las regiones por posición Y (de arriba hacia abajo, para las preguntas)
+                darkRegions.sort((a, b) => a.bbox[1] - b.bbox[1]);
+
+                // Mapear cada región a una columna (A, B, C, D)
+                const numColumns = 4; // A, B, C, D
+                const options = ['A', 'B', 'C', 'D'];
+                const studentAnswers = [];
+                for (let i = 0; i < Math.min(numQuestions, darkRegions.length); i++) {
+                    const region = darkRegions[i];
+                    const colIndex = Math.floor((region.bbox[0] + region.bbox[2] / 2) / (image.width / numColumns));
+                    const selectedOption = options[colIndex % numColumns] || '?';
+                    studentAnswers.push(selectedOption);
+                }
+
+                // Ajustar el número de respuestas para que coincida con las preguntas esperadas
+                while (studentAnswers.length < numQuestions) {
+                    studentAnswers.push('?'); // Si falta una respuesta, marcar como no detectada
+                }
+
+                // Comparar respuestas y calcular puntaje
+                let score = 0;
+                const totalQuestions = Math.min(correctAnswers.length, studentAnswers.length);
+                let resultText = 'Resultados:\n\n';
+                for (let i = 0; i < totalQuestions; i++) {
+                    if (studentAnswers[i] === '?') {
+                        resultText += `Pregunta ${i + 1}: No se detectó respuesta del estudiante. Correcta: ${correctAnswers[i]}\n`;
+                    } else {
+                        const isCorrect = studentAnswers[i] === correctAnswers[i];
+                        if (isCorrect) score++;
+                        resultText += `Pregunta ${i + 1}: Estudiante: ${studentAnswers[i]}, Correcta: ${correctAnswers[i]} ${isCorrect ? '✓' : '✗'}\n`;
+                    }
+                }
+                resultText += `\nPuntaje: ${score} de ${totalQuestions} (${(score / totalQuestions * 100).toFixed(2)}%)`;
+                document.getElementById('result').innerText = resultText;
+            } catch (error) {
+                document.getElementById('result').innerText = 'Error: ' + error.message;
+                console.error('Error detallado:', error);
+            }
+        }
+
+        // Descargar resultados
+        function downloadResults() {
+            const resultText = document.getElementById('result').innerText;
+            if (resultText) {
+                const blob = new Blob([resultText], { type: 'text/plain' });
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = 'resultados_calificacion.txt';
+                a.click();
+            } else {
+                alert('No hay resultados para descargar.');
+            }
+        }
+    </script>
+</body>
+</html>
