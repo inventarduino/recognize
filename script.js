@@ -12,7 +12,7 @@ async function login(event, isAdmin = false) {
     console.log('Buscando elemento #login-error:', errorElement); // Depuración
     if (!errorElement) {
         console.error('Elemento #login-error no encontrado en el formulario'); // Depuración
-        return; // Salir si no se encuentra el elemento
+        return;
     }
 
     try {
@@ -69,9 +69,16 @@ async function loadUsers() {
         console.log('Cargando usuarios desde:', `${SCRIPT_URL}?action=getUsers`); // Depuración
         const response = await fetch(`${SCRIPT_URL}?action=getUsers`);
         if (!response.ok) {
-            throw new Error(`Error HTTP: ${response.status}`);
+            throw new Error(`Error HTTP: ${response.status} - ${response.statusText}`);
         }
-        const users = await response.json();
+        const text = await response.text(); // Obtener texto primero
+        console.log('Respuesta cruda del servidor:', text); // Depuración
+        let users;
+        try {
+            users = JSON.parse(text); // Intentar parsear como JSON
+        } catch (e) {
+            throw new Error('Respuesta no es un JSON válido: ' + text);
+        }
         const select = document.getElementById('target-username');
         if (!select) {
             console.error('Elemento #target-username no encontrado'); // Depuración
