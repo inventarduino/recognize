@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Virtual Coin - Usuario</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="data.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>Virtual Coin</h1>
+        
+        <div class="login-section" id="loginSection">
+            <h2>Iniciar Sesión</h2>
+            <input type="text" id="username" placeholder="Usuario">
+            <input type="password" id="password" placeholder="Contraseña">
+            <button onclick="userLogin()">Ingresar</button>
+        </div>
+        
+        <div class="user-panel" id="userPanel" style="display: none;">
+            <h2>Bienvenido, <span id="welcomeUser"></span></h2>
+            <div class="balance">
+                <h3>Tu Saldo:</h3>
+                <p id="userBalance">0</p>
+                <small>monedas virtuales</small>
+            </div>
+            
+            <h3>Últimas Transacciones</h3>
+            <div id="userTransactions"></div>
+            
+            <button onclick="logout()">Cerrar Sesión</button>
+        </div>
+    </div>
+
+    <script>
+        function userLogin() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            
+            const user = users.find(u => u.username === username && u.password === password);
+            
+            if (user) {
+                document.getElementById('loginSection').style.display = 'none';
+                document.getElementById('userPanel').style.display = 'block';
+                document.getElementById('welcomeUser').textContent = user.username;
+                document.getElementById('userBalance').textContent = user.balance;
+                
+                // Simular historial de transacciones
+                const transactions = document.getElementById('userTransactions');
+                transactions.innerHTML = '';
+                const entry = document.createElement('div');
+                entry.textContent = `[${new Date().toLocaleString()}] Sesión iniciada`;
+                transactions.appendChild(entry);
+            } else {
+                alert("Usuario o contraseña incorrectos");
+            }
+        }
+        
+        function logout() {
+            document.getElementById('loginSection').style.display = 'block';
+            document.getElementById('userPanel').style.display = 'none';
+            document.getElementById('username').value = '';
+            document.getElementById('password').value = '';
+        }
+    </script>
+</body>
+</html>
