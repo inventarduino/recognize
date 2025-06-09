@@ -1,84 +1,20 @@
+/* Estilos base que se aplican a ambas páginas */
 body {
-    font-family: Arial, sans-serif;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     line-height: 1.6;
-    margin: 0;
-    padding: 0;
-    background-color: #f5f5f5;
     color: #333;
 }
 
+.hidden {
+    display: none !important;
+}
+
+/* Animaciones */
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
 .container {
-    max-width: 800px;
-    margin: 0 auto;
-    padding: 20px;
-    background-color: white;
-    box-shadow: 0 0 10px rgba(0,0,0,0.1);
-    border-radius: 8px;
-    margin-top: 30px;
-}
-
-h1, h2, h3 {
-    color: #2c3e50;
-}
-
-input, select, button {
-    padding: 10px;
-    margin: 5px 0;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    width: 100%;
-    box-sizing: border-box;
-}
-
-button {
-    background-color: #3498db;
-    color: white;
-    border: none;
-    cursor: pointer;
-    font-weight: bold;
-    margin-top: 10px;
-}
-
-button:hover {
-    background-color: #2980b9;
-}
-
-.form-group {
-    margin-bottom: 15px;
-}
-
-.balance {
-    text-align: center;
-    margin: 20px 0;
-    padding: 20px;
-    background-color: #f8f9fa;
-    border-radius: 8px;
-}
-
-.balance p {
-    font-size: 2.5em;
-    margin: 10px 0;
-    color: #27ae60;
-}
-
-.login-section, .admin-panel, .user-panel {
-    padding: 20px;
-}
-
-#transactionLog, #userTransactions {
-    max-height: 200px;
-    overflow-y: auto;
-    border: 1px solid #eee;
-    padding: 10px;
-    margin-top: 10px;
-    background-color: #fafafa;
-}
-
-#transactionLog div, #userTransactions div {
-    padding: 5px;
-    border-bottom: 1px solid #eee;
-}
-
-#transactionLog div:last-child, #userTransactions div:last-child {
-    border-bottom: none;
+    animation: fadeIn 0.5s ease-in-out;
 }
