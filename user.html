@@ -4,62 +4,180 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Virtual Coin - Usuario</title>
-    <link rel="stylesheet" href="style.css">
-    <script src="data.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f2f5;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #34495e;
+        }
+        input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            width: 100%;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        .balance-container {
+            text-align: center;
+            margin: 30px 0;
+            padding: 20px;
+            background-color: #f8f9fa;
+            border-radius: 10px;
+        }
+        .balance-amount {
+            font-size: 48px;
+            font-weight: bold;
+            color: #27ae60;
+            margin: 10px 0;
+        }
+        .hidden {
+            display: none;
+        }
+        #userTransactions {
+            margin-top: 20px;
+            border: 1px solid #eee;
+            padding: 15px;
+            border-radius: 6px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .transaction-entry {
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+            font-family: monospace;
+        }
+    </style>
 </head>
 <body>
     <div class="container">
         <h1>Virtual Coin</h1>
         
-        <div class="login-section" id="loginSection">
+        <div id="loginSection">
             <h2>Iniciar Sesión</h2>
-            <input type="text" id="username" placeholder="Usuario">
-            <input type="password" id="password" placeholder="Contraseña">
+            <div class="form-group">
+                <label for="username">Usuario:</label>
+                <input type="text" id="username" placeholder="Ingresa tu usuario">
+            </div>
+            <div class="form-group">
+                <label for="password">Contraseña:</label>
+                <input type="password" id="password" placeholder="Ingresa tu contraseña">
+            </div>
             <button onclick="userLogin()">Ingresar</button>
         </div>
         
-        <div class="user-panel" id="userPanel" style="display: none;">
+        <div id="userPanel" class="hidden">
             <h2>Bienvenido, <span id="welcomeUser"></span></h2>
-            <div class="balance">
-                <h3>Tu Saldo:</h3>
-                <p id="userBalance">0</p>
+            
+            <div class="balance-container">
+                <h3>Tu Saldo Actual</h3>
+                <div class="balance-amount" id="userBalance">0</div>
                 <small>monedas virtuales</small>
             </div>
             
-            <h3>Últimas Transacciones</h3>
+            <h3>Historial de Transacciones</h3>
             <div id="userTransactions"></div>
             
-            <button onclick="logout()">Cerrar Sesión</button>
+            <button onclick="logout()" style="margin-top: 30px; background-color: #e74c3c;">Cerrar Sesión</button>
         </div>
     </div>
 
     <script>
-        function userLogin() {
+        // Configuración con tus datos
+        const API_URL = "https://script.google.com/macros/s/AKfycbwvLWnUvLyLLER923fi0GFSubPlsjl71nJIxOY3mtAcp28HXVzb81OC4gXuwkUk6uTR/exec";
+        const SHEET_ID = "1-W-nndm-MNSOxWVpguFL0QcKvYcR2oUnEiwCoOwSPtE";
+        
+        async function userLogin() {
             const username = document.getElementById('username').value;
             const password = document.getElementById('password').value;
             
-            const user = users.find(u => u.username === username && u.password === password);
+            if (!username || !password) {
+                alert("Ingresa usuario y contraseña");
+                return;
+            }
             
-            if (user) {
-                document.getElementById('loginSection').style.display = 'none';
-                document.getElementById('userPanel').style.display = 'block';
+            try {
+                const response = await fetch(`${API_URL}?action=getUser&sheetId=${SHEET_ID}&username=${username}&password=${password}`);
+                const user = await response.json();
+                
+                if (user.error) {
+                    alert(user.error);
+                    return;
+                }
+                
+                // Mostrar panel de usuario
+                document.getElementById('loginSection').classList.add('hidden');
+                document.getElementById('userPanel').classList.remove('hidden');
+                
+                // Actualizar datos del usuario
                 document.getElementById('welcomeUser').textContent = user.username;
                 document.getElementById('userBalance').textContent = user.balance;
                 
-                // Simular historial de transacciones
-                const transactions = document.getElementById('userTransactions');
-                transactions.innerHTML = '';
-                const entry = document.createElement('div');
-                entry.textContent = `[${new Date().toLocaleString()}] Sesión iniciada`;
-                transactions.appendChild(entry);
-            } else {
-                alert("Usuario o contraseña incorrectos");
+                // Mostrar historial
+                const transactionsDiv = document.getElementById('userTransactions');
+                transactionsDiv.innerHTML = '';
+                
+                if (user.history) {
+                    const transactions = user.history.split('\n').filter(t => t.trim() !== '');
+                    
+                    if (transactions.length > 0) {
+                        transactions.forEach(entry => {
+                            const div = document.createElement('div');
+                            div.className = 'transaction-entry';
+                            div.textContent = entry;
+                            transactionsDiv.appendChild(div);
+                        });
+                    } else {
+                        transactionsDiv.innerHTML = '<div style="color: #777; text-align: center;">No hay transacciones registradas</div>';
+                    }
+                }
+                
+            } catch (error) {
+                console.error("Error:", error);
+                alert("Error al iniciar sesión");
             }
         }
         
         function logout() {
-            document.getElementById('loginSection').style.display = 'block';
-            document.getElementById('userPanel').style.display = 'none';
+            document.getElementById('loginSection').classList.remove('hidden');
+            document.getElementById('userPanel').classList.add('hidden');
             document.getElementById('username').value = '';
             document.getElementById('password').value = '';
         }
