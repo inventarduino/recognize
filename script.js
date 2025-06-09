@@ -9,9 +9,10 @@ async function login(event, isAdmin = false) {
     const password = form.querySelector(isAdmin ? '#admin-password' : '#password').value;
     const errorElement = form.querySelector('#login-error');
 
+    console.log('Buscando elemento #login-error:', errorElement); // Depuración
     if (!errorElement) {
         console.error('Elemento #login-error no encontrado en el formulario'); // Depuración
-        return;
+        return; // Salir si no se encuentra el elemento
     }
 
     try {
