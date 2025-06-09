@@ -1,214 +1,88 @@
-<!DOCTYPE html>
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin - Virtual Coin</title>
-    <style>
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #f0f2f5;
-            margin: 0;
-            padding: 20px;
-        }
-        .container {
-            max-width: 800px;
-            margin: 0 auto;
-            background: white;
-            padding: 30px;
-            border-radius: 10px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        }
-        h1 {
-            color: #2c3e50;
-            text-align: center;
-            margin-bottom: 30px;
-        }
-        .form-group {
-            margin-bottom: 20px;
-        }
-        label {
-            display: block;
-            margin-bottom: 8px;
-            font-weight: bold;
-            color: #34495e;
-        }
-        input, select {
-            width: 100%;
-            padding: 12px;
-            border: 1px solid #ddd;
-            border-radius: 6px;
-            font-size: 16px;
-            box-sizing: border-box;
-        }
-        button {
-            background-color: #3498db;
-            color: white;
-            border: none;
-            padding: 12px 20px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 16px;
-            width: 100%;
-            transition: background-color 0.3s;
-        }
-        button:hover {
-            background-color: #2980b9;
-        }
-        #transactionLog {
-            margin-top: 20px;
-            border: 1px solid #eee;
-            padding: 15px;
-            border-radius: 6px;
-            max-height: 300px;
-            overflow-y: auto;
-        }
-        .transaction-entry {
-            padding: 10px;
-            border-bottom: 1px solid #eee;
-            font-family: monospace;
-        }
-        .hidden {
-            display: none;
-        }
-    </style>
+    <title>Panel de Administración</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div class="container">
-        <h1>Panel de Administración</h1>
-        
-        <div id="loginSection">
+        <div id="login-section">
+            <h1>Panel de Administración</h1>
             <h2>Iniciar Sesión</h2>
-            <div class="form-group">
-                <label for="adminUsername">Usuario admin:</label>
-                <input type="text" id="adminUsername" placeholder="Ingresa tu usuario">
-            </div>
-            <div class="form-group">
-                <label for="adminPassword">Contraseña:</label>
-                <input type="password" id="adminPassword" placeholder="Ingresa tu contraseña">
-            </div>
-            <button onclick="adminLogin()">Ingresar</button>
+            <form id="admin-login-form">
+                <label for="admin-username">Usuario admin:</label>
+                <input type="text" id="admin-username" required>
+                <br>
+                <label for="admin-password">Contraseña:</label>
+                <input type="password" id="admin-password" required>
+                <br>
+                <button type="submit">Ingresar</button>
+            </form>
+            <p id="login-error" class="error hidden"></p>
         </div>
-        
-        <div id="adminPanel" class="hidden">
+
+        <div id="admin-panel" class="hidden">
             <h2>Asignar Monedas Virtuales</h2>
-            
-            <div class="form-group">
-                <label for="userSelect">Usuario Destino:</label>
-                <select id="userSelect">
+            <form id="assign-coins-form">
+                <label for="target-username">Usuario Destino:</label>
+                <select id="target-username" required>
                     <option value="">Cargando usuarios...</option>
                 </select>
-            </div>
-            
-            <div class="form-group">
+                <br>
                 <label for="amount">Cantidad:</label>
-                <input type="number" id="amount" placeholder="Ej: 100">
-            </div>
-            
-            <button onclick="assignCoins()">Asignar Monedas</button>
-            
-            <h3 style="margin-top: 30px;">Registro de Transacciones</h3>
-            <div id="transactionLog"></div>
-            
-            <button onclick="logout()" style="margin-top: 30px; background-color: #e74c3c;">Cerrar Sesión</button>
+                <input type="number" id="amount" required min="1">
+                <br>
+                <button type="submit">Asignar Monedas</button>
+            </form>
+            <p id="assign-result" class="hidden"></p>
+
+            <h2>Registro de Transacciones</h2>
+            <div id="transaction-history"></div>
+
+            <button id="logout-button">Cerrar Sesión</button>
         </div>
     </div>
-
-    <script>
-        // Configuración con tus datos
-        const API_URL = "https://script.google.com/macros/s/AKfycbwvLWnUvLyLLER923fi0GFSubPlsjl71nJIxOY3mtAcp28HXVzb81OC4gXuwkUk6uTR/exec";
-        const SHEET_ID = "1-W-nndm-MNSOxWVpguFL0QcKvYcR2oUnEiwCoOwSPtE";
-        const ADMIN_USERNAME = "admin";
-        const ADMIN_PASSWORD = "admin123";
-        
-        async function adminLogin() {
-            const username = document.getElementById('adminUsername').value;
-            const password = document.getElementById('adminPassword').value;
-            
-            if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
-                document.getElementById('loginSection').classList.add('hidden');
-                document.getElementById('adminPanel').classList.remove('hidden');
-                await loadUserList();
-            } else {
-                alert("Credenciales incorrectas");
-            }
-        }
-        
-        async function loadUserList() {
-            try {
-                const response = await fetch(`${API_URL}?action=getAllUsers&sheetId=${SHEET_ID}`);
-                const users = await response.json();
-                
-                const select = document.getElementById('userSelect');
-                select.innerHTML = '';
-                
-                // Agregar opción por defecto
-                const defaultOption = document.createElement('option');
-                defaultOption.value = '';
-                defaultOption.textContent = 'Selecciona un usuario';
-                select.appendChild(defaultOption);
-                
-                // Agregar usuarios
-                users.forEach(user => {
-                    if (user.username !== ADMIN_USERNAME) {
-                        const option = document.createElement('option');
-                        option.value = user.username;
-                        option.textContent = `${user.username} (Saldo: ${user.balance})`;
-                        select.appendChild(option);
-                    }
-                });
-            } catch (error) {
-                console.error("Error al cargar usuarios:", error);
-                alert("Error al cargar la lista de usuarios");
-            }
-        }
-        
-        async function assignCoins() {
-            const username = document.getElementById('userSelect').value;
-            const amount = parseInt(document.getElementById('amount').value);
-            
-            if (!username) {
-                alert("Selecciona un usuario");
-                return;
-            }
-            
-            if (isNaN(amount)) {
-                alert("Ingresa una cantidad válida");
-                return;
-            }
-            
-            try {
-                const response = await fetch(`${API_URL}?action=updateBalance&sheetId=${SHEET_ID}&username=${username}&amount=${amount}`);
-                const result = await response.json();
-                
-                if (result.success) {
-                    // Mostrar en el log
-                    const log = document.getElementById('transactionLog');
-                    const entry = document.createElement('div');
-                    entry.className = 'transaction-entry';
-                    entry.textContent = `[${new Date().toLocaleString()}] +${amount} monedas asignadas a ${username}. Nuevo saldo: ${result.newBalance}`;
-                    log.prepend(entry);
-                    
-                    // Actualizar lista de usuarios
-                    await loadUserList();
-                    
-                    // Limpiar campo de cantidad
-                    document.getElementById('amount').value = '';
-                } else {
-                    alert("Error al actualizar el saldo");
-                }
-            } catch (error) {
-                console.error("Error:", error);
-                alert("Error al conectar con el servidor");
-            }
-        }
-        
-        function logout() {
-            document.getElementById('loginSection').classList.remove('hidden');
-            document.getElementById('adminPanel').classList.add('hidden');
-            document.getElementById('adminUsername').value = '';
-            document.getElementById('adminPassword').value = '';
-        }
-    </script>
+    <script src="script.js"></script>
 </body>
 </html>
