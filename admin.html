@@ -1,215 +1,295 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Admin - Criptomoneda Escolar</title>
-  <style>
-    body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
-    .hidden { display: none; }
-    .error { color: red; }
-    .success { color: green; }
-    input, button { margin: 5px; padding: 8px; }
-    .section { margin-top: 20px; border: 1px solid #ccc; padding: 15px; }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - CryptoEduca</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1, h2 {
+            color: #2c3e50;
+        }
+        .section {
+            margin-bottom: 30px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        input, button {
+            padding: 8px;
+            margin: 5px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        button {
+            background-color: #3498db;
+            color: white;
+            cursor: pointer;
+            border: none;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        .hidden {
+            display: none;
+        }
+        .error {
+            color: #e74c3c;
+        }
+        .success {
+            color: #27ae60;
+        }
+    </style>
 </head>
 <body>
-  <!-- Login Section -->
-  <div id="loginSection">
-    <h2>Iniciar Sesión (Profesor)</h2>
-    <input type="text" id="rutInput" placeholder="RUT (ej: 17320344-6)" required>
-    <input type="password" id="passwordInput" placeholder="Contraseña" required>
-    <button onclick="login()">Ingresar</button>
-    <p id="loginError" class="error"></p>
-  </div>
-
-  <!-- Admin Dashboard -->
-  <div id="adminSection" class="hidden section">
-    <h2>Bienvenido, <span id="professorName"></span></h2>
-    <p>Saldo Actual: <span id="professorBalance"></span> monedas</p>
-    
-    <!-- Check Student Balance -->
-    <div class="section">
-      <h3>Consultar Saldo de Estudiante</h3>
-      <input type="text" id="studentRutInput" placeholder="RUT del estudiante">
-      <button onclick="checkStudentBalance()">Consultar</button>
-      <p id="studentBalanceResult"></p>
+    <div class="container">
+        <h1>CryptoEduca - Panel de Profesor</h1>
+        
+        <!-- Sección de Login -->
+        <div id="loginSection" class="section">
+            <h2>Iniciar Sesión</h2>
+            <div>
+                <label for="rutProfesor">RUT Profesor:</label>
+                <input type="text" id="rutProfesor" placeholder="12345678-9">
+            </div>
+            <div>
+                <label for="claveProfesor">Contraseña:</label>
+                <input type="password" id="claveProfesor">
+            </div>
+            <button id="btnLogin">Ingresar</button>
+            <p id="loginMessage" class="error"></p>
+        </div>
+        
+        <!-- Sección de Profesor -->
+        <div id="profesorSection" class="section hidden">
+            <h2>Bienvenido, <span id="nombreProfesor"></span></h2>
+            <p>Tu saldo actual: <span id="saldoProfesor"></span> monedas</p>
+            
+            <h3>Consultar saldo de estudiante</h3>
+            <div>
+                <label for="rutEstudianteConsulta">RUT Estudiante:</label>
+                <input type="text" id="rutEstudianteConsulta" placeholder="12345678-9">
+                <button id="btnConsultarEstudiante">Consultar</button>
+            </div>
+            <p id="saldoEstudianteConsulta"></p>
+            
+            <h3>Transferir monedas a estudiante</h3>
+            <div>
+                <label for="rutEstudianteTransferencia">RUT Estudiante:</label>
+                <input type="text" id="rutEstudianteTransferencia" placeholder="12345678-9">
+            </div>
+            <div>
+                <label for="montoTransferencia">Monto:</label>
+                <input type="number" id="montoTransferencia" min="1">
+            </div>
+            <button id="btnTransferir">Transferir</button>
+            <p id="transferenciaMessage"></p>
+            
+            <button id="btnLogout">Cerrar Sesión</button>
+        </div>
     </div>
 
-    <!-- Assign Coins -->
-    <div class="section">
-      <h3>Asignar Monedas a Estudiante</h3>
-      <input type="text" id="assignRutInput" placeholder="RUT del estudiante">
-      <input type="number" id="assignAmountInput" placeholder="Cantidad" min="1">
-      <button onclick="assignCoins()">Asignar</button>
-      <p id="assignResult" class="error"></p>
-    </div>
-  </div>
-
-  <script>
-    let currentProfessor = null;
-
-    async function login() {
-      const rut = document.getElementById('rutInput').value.trim();
-      const password = document.getElementById('passwordInput').value.trim();
-      const errorElement = document.getElementById('loginError');
-
-      if (!rut || !password) {
-        errorElement.textContent = 'Por favor, ingrese RUT y contraseña.';
-        return;
-      }
-
-      try {
-        const response = await fetch('listaprof.txt');
-        const data = await response.text();
-        const lines = data.split('\n').filter(line => line.trim());
-
-        let found = false;
-        for (const line of lines) {
-          const [fileRut, name, filePassword, balance] = line.split(' -> ').map(s => s.trim());
-          if (fileRut === rut && filePassword === password) {
-            currentProfessor = { rut, name, password, balance: parseInt(balance.replace('.', '')) };
-            found = true;
-            break;
-          }
+    <script>
+        // Elementos del DOM
+        const loginSection = document.getElementById('loginSection');
+        const profesorSection = document.getElementById('profesorSection');
+        const btnLogin = document.getElementById('btnLogin');
+        const btnLogout = document.getElementById('btnLogout');
+        const btnConsultarEstudiante = document.getElementById('btnConsultarEstudiante');
+        const btnTransferir = document.getElementById('btnTransferir');
+        const loginMessage = document.getElementById('loginMessage');
+        const transferenciaMessage = document.getElementById('transferenciaMessage');
+        
+        // Variables de estado
+        let profesorActual = null;
+        let listaprof = [];
+        let listaestu = [];
+        
+        // Cargar archivos al iniciar
+        async function cargarArchivos() {
+            try {
+                const responseProf = await fetch('listaprof.txt');
+                const textProf = await responseProf.text();
+                listaprof = parsearArchivo(textProf);
+                
+                const responseEstu = await fetch('listaestu.txt');
+                const textEstu = await responseEstu.text();
+                listaestu = parsearArchivo(textEstu);
+            } catch (error) {
+                console.error('Error cargando archivos:', error);
+            }
         }
-
-        if (found) {
-          document.getElementById('loginSection').classList.add('hidden');
-          document.getElementById('adminSection').classList.remove('hidden');
-          document.getElementById('professorName').textContent = currentProfessor.name;
-          document.getElementById('professorBalance').textContent = currentProfessor.balance.toLocaleString();
-          errorElement.textContent = '';
-        } else {
-          errorElement.textContent = 'RUT o contraseña incorrectos.';
+        
+        // Parsear archivo de texto a array de objetos
+        function parsearArchivo(texto) {
+            return texto.split('\n')
+                .filter(linea => linea.trim() !== '')
+                .map(linea => {
+                    const partes = linea.split(' -> ');
+                    const saldo = partes[3] ? parseFloat(partes[3].replace(/\./g, '').replace(',', '.')) : 0;
+                    return {
+                        rut: partes[0].trim(),
+                        nombre: partes[1].trim(),
+                        clave: partes[2].trim(),
+                        saldo: saldo
+                    };
+                });
         }
-      } catch (error) {
-        errorElement.textContent = 'Error al leer el archivo de profesores.';
-        console.error(error);
-      }
-    }
-
-    async function checkStudentBalance() {
-      const rut = document.getElementById('studentRutInput').value.trim();
-      const resultElement = document.getElementById('studentBalanceResult');
-
-      if (!rut) {
-        resultElement.textContent = 'Por favor, ingrese el RUT del estudiante.';
-        resultElement.classList.add('error');
-        return;
-      }
-
-      try {
-        const response = await fetch('listaestu.txt');
-        const data = await response.text();
-        const lines = data.split('\n').filter(line => line.trim());
-
-        let found = false;
-        for (const line of lines) {
-          const [fileRut, name, password, balance] = line.split(' -> ').map(s => s.trim());
-          if (fileRut === rut) {
-            resultElement.textContent = `Saldo de ${name}: ${parseInt(balance).toLocaleString()} monedas`;
-            resultElement.classList.remove('error');
-            found = true;
-            break;
-          }
+        
+        // Convertir array de objetos a texto para guardar
+        function serializarDatos(datos) {
+            return datos.map(item => 
+                `${item.rut} -> ${item.nombre} -> ${item.clave} -> ${item.saldo.toLocaleString('es-CL')}`
+            ).join('\n');
         }
-
-        if (!found) {
-          resultElement.textContent = 'Estudiante no encontrado.';
-          resultElement.classList.add('error');
+        
+        // Guardar cambios en los archivos (simulado para GitHub Pages)
+        async function guardarCambios() {
+            // En un entorno real, aquí harías una petición a un servidor para guardar los cambios
+            // Como esto es para GitHub Pages, solo actualizamos los arrays en memoria
+            console.log('Cambios guardados (simulado para GitHub Pages)');
+            console.log('Profesores:', listaprof);
+            console.log('Estudiantes:', listaestu);
+            
+            // En un entorno real, usarías algo como:
+            // await fetch('guardar.php', { method: 'POST', body: ... });
         }
-      } catch (error) {
-        resultElement.textContent = 'Error al leer el archivo de estudiantes.';
-        resultElement.classList.add('error');
-        console.error(error);
-      }
-    }
-
-    async function assignCoins() {
-      const rut = document.getElementById('assignRutInput').value.trim();
-      const amount = parseInt(document.getElementById('assignAmountInput').value);
-      const resultElement = document.getElementById('assignResult');
-
-      if (!rut || isNaN(amount) || amount <= 0) {
-        resultElement.textContent = 'Por favor, ingrese un RUT válido y una cantidad positiva.';
-        return;
-      }
-
-      if (amount > currentProfessor.balance) {
-        resultElement.textContent = 'Saldo insuficiente.';
-        return;
-      }
-
-      try {
-        // Read student file
-        const studentResponse = await fetch('listaestu.txt');
-        const studentData = await studentResponse.text();
-        const studentLines = studentData.split('\n').filter(line => line.trim());
-
-        let studentFound = false;
-        let updatedStudentLines = [];
-        let studentName = '';
-
-        for (const line of studentLines) {
-          const [fileRut, name, password, balance] = line.split(' -> ').map(s => s.trim());
-          if (fileRut === rut) {
-            const newBalance = parseInt(balance) + amount;
-            updatedStudentLines.push(`${fileRut} -> ${name} -> ${password} -> ${newBalance}`);
-            studentFound = true;
-            studentName = name;
-          } else {
-            updatedStudentLines.push(line);
-          }
-        }
-
-        if (!studentFound) {
-          resultElement.textContent = 'Estudiante no encontrado.';
-          return;
-        }
-
-        // Update professor balance
-        currentProfessor.balance -= amount;
-        const professorResponse = await fetch('listaprof.txt');
-        const professorData = await professorResponse.text();
-        const professorLines = professorData.split('\n').filter(line => line.trim());
-        let updatedProfessorLines = [];
-
-        for (const line of professorLines) {
-          const [fileRut, name, password, balance] = line.split(' -> ').map(s => s.trim());
-          if (fileRut === currentProfessor.rut) {
-            updatedProfessorLines.push(`${fileRut} -> ${name} -> ${password} -> ${currentProfessor.balance}`);
-          } else {
-            updatedProfessorLines.push(line);
-          }
-        }
-
-        // Note: Writing to files requires a backend
-        console.log('Updated student file content:', updatedStudentLines.join('\n'));
-        console.log('Updated professor file content:', updatedProfessorLines.join('\n'));
-
-        // Simulate file update (replace with backend API call)
-        // await fetch('update_files.php', {
-        //   method: 'POST',
-        //   body: JSON.stringify({
-        //     listaestu: updatedStudentLines.join('\n'),
-        //     listaprof: updatedProfessorLines.join('\n')
-        //   })
-        // });
-
-        document.getElementById('professorBalance').textContent = currentProfessor.balance.toLocaleString();
-        resultElement.textContent = `Se asignaron ${amount.toLocaleString()} monedas a ${studentName}.`;
-        resultElement.classList.add('success');
-        resultElement.classList.remove('error');
-
-        // Clear inputs
-        document.getElementById('assignRutInput').value = '';
-        document.getElementById('assignAmountInput').value = '';
-      } catch (error) {
-        resultElement.textContent = 'Error al procesar la asignación.';
-        console.error(error);
-      }
-    }
-  </script>
+        
+        // Iniciar sesión
+        btnLogin.addEventListener('click', async () => {
+            const rut = document.getElementById('rutProfesor').value.trim();
+            const clave = document.getElementById('claveProfesor').value.trim();
+            
+            if (!rut || !clave) {
+                loginMessage.textContent = 'Por favor ingresa RUT y contraseña';
+                return;
+            }
+            
+            await cargarArchivos();
+            
+            const profesor = listaprof.find(p => p.rut === rut);
+            
+            if (!profesor) {
+                loginMessage.textContent = 'RUT no encontrado';
+                return;
+            }
+            
+            if (profesor.clave !== clave) {
+                loginMessage.textContent = 'Contraseña incorrecta';
+                return;
+            }
+            
+            profesorActual = profesor;
+            document.getElementById('nombreProfesor').textContent = profesor.nombre;
+            document.getElementById('saldoProfesor').textContent = profesor.saldo.toLocaleString('es-CL');
+            
+            loginSection.classList.add('hidden');
+            profesorSection.classList.remove('hidden');
+            loginMessage.textContent = '';
+        });
+        
+        // Cerrar sesión
+        btnLogout.addEventListener('click', () => {
+            profesorActual = null;
+            profesorSection.classList.add('hidden');
+            loginSection.classList.remove('hidden');
+            document.getElementById('rutProfesor').value = '';
+            document.getElementById('claveProfesor').value = '';
+            document.getElementById('rutEstudianteConsulta').value = '';
+            document.getElementById('saldoEstudianteConsulta').textContent = '';
+            document.getElementById('rutEstudianteTransferencia').value = '';
+            document.getElementById('montoTransferencia').value = '';
+            transferenciaMessage.textContent = '';
+        });
+        
+        // Consultar saldo de estudiante
+        btnConsultarEstudiante.addEventListener('click', async () => {
+            const rutEstudiante = document.getElementById('rutEstudianteConsulta').value.trim();
+            
+            if (!rutEstudiante) {
+                document.getElementById('saldoEstudianteConsulta').textContent = 'Ingresa un RUT';
+                document.getElementById('saldoEstudianteConsulta').className = 'error';
+                return;
+            }
+            
+            await cargarArchivos();
+            
+            const estudiante = listaestu.find(e => e.rut === rutEstudiante);
+            
+            if (!estudiante) {
+                document.getElementById('saldoEstudianteConsulta').textContent = 'Estudiante no encontrado';
+                document.getElementById('saldoEstudianteConsulta').className = 'error';
+                return;
+            }
+            
+            document.getElementById('saldoEstudianteConsulta').textContent = 
+                `Saldo de ${estudiante.nombre}: ${estudiante.saldo.toLocaleString('es-CL')} monedas`;
+            document.getElementById('saldoEstudianteConsulta').className = 'success';
+        });
+        
+        // Transferir monedas
+        btnTransferir.addEventListener('click', async () => {
+            const rutEstudiante = document.getElementById('rutEstudianteTransferencia').value.trim();
+            const monto = parseFloat(document.getElementById('montoTransferencia').value);
+            
+            if (!rutEstudiante || isNaN(monto) || monto <= 0) {
+                transferenciaMessage.textContent = 'Datos inválidos';
+                transferenciaMessage.className = 'error';
+                return;
+            }
+            
+            await cargarArchivos();
+            
+            // Buscar estudiante
+            const estudianteIndex = listaestu.findIndex(e => e.rut === rutEstudiante);
+            if (estudianteIndex === -1) {
+                transferenciaMessage.textContent = 'Estudiante no encontrado';
+                transferenciaMessage.className = 'error';
+                return;
+            }
+            
+            // Verificar saldo del profesor
+            const profesorIndex = listaprof.findIndex(p => p.rut === profesorActual.rut);
+            if (listaprof[profesorIndex].saldo < monto) {
+                transferenciaMessage.textContent = 'Saldo insuficiente';
+                transferenciaMessage.className = 'error';
+                return;
+            }
+            
+            // Realizar transferencia
+            listaprof[profesorIndex].saldo -= monto;
+            listaestu[estudianteIndex].saldo += monto;
+            
+            // Actualizar profesor actual
+            profesorActual = listaprof[profesorIndex];
+            document.getElementById('saldoProfesor').textContent = profesorActual.saldo.toLocaleString('es-CL');
+            
+            // Guardar cambios
+            await guardarCambios();
+            
+            transferenciaMessage.textContent = 
+                `Transferencia exitosa: ${monto.toLocaleString('es-CL')} monedas a ${listaestu[estudianteIndex].nombre}`;
+            transferenciaMessage.className = 'success';
+            
+            // Limpiar campos
+            document.getElementById('rutEstudianteTransferencia').value = '';
+            document.getElementById('montoTransferencia').value = '';
+        });
+        
+        // Cargar archivos al iniciar la página
+        cargarArchivos();
+    </script>
 </body>
 </html>
